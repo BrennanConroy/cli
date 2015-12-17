@@ -23,6 +23,7 @@ $Projects = @(
     "Microsoft.DotNet.Tools.Repl.Csi",
     "Microsoft.DotNet.Tools.Resgen",
     "Microsoft.DotNet.Tools.Run",
+    "Microsoft.DotNet.Tools.Runtime",
     "Microsoft.DotNet.Tools.Test"    
 )
 
