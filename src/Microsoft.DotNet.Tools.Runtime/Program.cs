@@ -4,16 +4,16 @@
 using System;
 using System.IO;
 using System.IO.Compression;
-using Microsoft.DotNet.Cli.Utils;
 using Microsoft.Dnx.Runtime.Common.CommandLine;
+using Microsoft.DotNet.Cli.Utils;
 using Microsoft.Extensions.PlatformAbstractions;
-using System.Linq;
 
 namespace Microsoft.DotNet.Tools.Runtime
 {
     public class Program
     {
         private static readonly string installLocation = "C:\\Users\\brecon\\AppData\\Local\\Microsoft\\dotnet\\cli\\runtime";
+        private static readonly string defaultFeed = "C:\\Users\\brecon\\Downloads"; //https://azure.blob.storage
         public static int Main(string[] args)
         {
             DebugHelper.HandleDebugSwitch(ref args);
@@ -40,136 +40,92 @@ namespace Microsoft.DotNet.Tools.Runtime
 
                 c.OnExecute(() =>
                 {
+                    //var runtimeEnv = new DefaultRuntimeEnvironment();
                     var versionOrPath = string.IsNullOrEmpty(projectDirOrVersion.Value) ? Directory.GetCurrentDirectory() : projectDirOrVersion.Value;
-                    var feed = optionFeed.HasValue() ? optionFeed.Value() : "C:\\Users\\brecon\\Downloads";
-
-                    if (versionOrPath == "latest")
+                    var feed = optionFeed.HasValue() ? optionFeed.Value() : defaultFeed;
+                    var rid = "win7-x64"; //runtimeEnv.GetRuntimeIdentifier();
+                    var global = optionGlobal.HasValue() ? true : false;
+                    if (optionRid.HasValue())
                     {
-                        //get latest version from feed
-
-                        // resolve environment specific defaults
-                        //var runtimeEnv = new DefaultRuntimeEnvironment();
-                        //var rid = runtimeEnv.GetRuntimeIdentifier();
-                        if (Directory.Exists(feed))
-                        {
-                            //feed is a filesystem
-                            //Directory.EnumerateFiles(feed, "*.zip");
-                        }
+                        rid = optionRid.Value();
                     }
                     else
                     {
-                        //check if its a path or a runtime version
+                        var os = optionOs.HasValue() ? optionOs.Value() : "win"; //runtimeEnv.OperatingSystem;
+                        var arch = optionArch.HasValue() ? optionArch.Value() : "x64"; //runtimeEnv.GetArch();
+                        //runtimeEnv.RuntimeArchitecture = arch;
+                        //runtimeEnv.OperatingSystemPlatform = ;
+                        //runtimeEnv.OperatingSystemVersion = ;
+                        //rid = runtimeEnv.GetRuntimeIdentifier();
+                    }
+                    //var rid = optionRid.HasValue() ? optionRid.Value() : "win7-x64";
+                    //var os = optionOs.HasValue() ? optionOs.Value() : "win"; //runtimeEnv.OperatingSystem;
+                    //var arch = optionArch.HasValue() ? optionArch.Value() : "x64"; //runtimeEnv.GetArch()
+
+                    IRuntimeProvider provider;
+                    if (Path.IsPathRooted(feed))
+                    {
+                        provider = new FileSystemRuntimeProvider(feed);
+                    }
+                    else
+                    {
+                        provider = new UrlRuntimeProvider(feed);
+                    }
+
+                    string runtimeName = string.Empty;
+                    if (versionOrPath == "latest")
+                    {
+                        // get latest version from feed
+                        runtimeName = provider.GetLatest(rid);
+                    }
+                    else
+                    {
+                        // check if its a path or a runtime version
                         if (versionOrPath.EndsWith(".zip") || versionOrPath.EndsWith(".tar.gz"))
                         {
-                            // versionOrPath is a path
-                            if (!File.Exists(versionOrPath))
-                            {
-                                Console.WriteLine("Path to runtime does not exist".Yellow());
-                                return 1;
-                            }
-
-                            //var dotnetHomeEnv = Environment.GetEnvironmentVariable("DOTNET_HOME");
-                            //if (string.IsNullOrEmpty(dotnetHomeEnv))
-                            //{
-                            //    Console.WriteLine("DOTNET_HOME environment variable not set".Yellow());
-                            //    return 1;
-                            //}
-                            //var dotnetHomes = dotnetHomeEnv.Split(';');
-                            var dotnetHomes = new string[] { installLocation };
-
-                            // coreclr_1.0.0-alpha-0001_win7-x64.zip
-                            var runtimeId = Path.GetFileNameWithoutExtension(versionOrPath).Split('_');
-                            var outputDir = Path.Combine(dotnetHomes[dotnetHomes.Length - 1], runtimeId[1], runtimeId[2]);
-
-                            if (Directory.Exists(outputDir))
-                            {
-                                Console.WriteLine($"Runtime {runtimeId[1]}/{runtimeId[2]} already exists".Yellow());
-                                return 1;
-                            }
-
-                            try
-                            {
-                                Directory.CreateDirectory(outputDir);
-
-                                var runtimeZip = ZipFile.OpenRead(versionOrPath);
-                                foreach (var file in runtimeZip.Entries)
-                                {
-                                    file.ExtractToFile(Path.Combine(outputDir, file.Name));
-                                }
-                            }
-                            catch(Exception ex)
-                            {
-                                Directory.Delete(outputDir, true);
-                                throw ex;
-                            }
-
-                            Console.WriteLine($"Installed to {outputDir}");
-
-                            return 0;
+                            runtimeName = versionOrPath;
+                        }
+                        // path to project
+                        else if (versionOrPath.Contains("project.json") || Directory.Exists(Path.GetDirectoryName(versionOrPath)))
+                        {
+                            throw new NotImplementedException("Haven't implemented project path yet");
+                        }
+                        // runtime version
+                        else
+                        {
+                            var extension = rid.Contains("win") ? ".zip" : ".tar.gz";
+                            runtimeName = $"coreclr_{versionOrPath}_{rid}{extension}";
                         }
                     }
-                    Console.WriteLine($"Using feed: {feed}");
-                    Console.WriteLine($"versionOrPath: {versionOrPath}");
-                    return 0;
-                });
-            });
 
-            var framework = string.Empty;
-            //var framework = app.Argument("install", "Runtime", false);
-            //var framework = app.Option("install", "path to project.json or runtime file or version number", CommandOptionType.SingleValue);
-            //var project = app.Argument("<PROJECT>", "The project to publish, defaults to the current directory. Can be a path to a project.json or a project directory");
-
-            app.OnExecute(() =>
-            {
-                //NuGetFramework nugetframework = null;
-
-                if (string.IsNullOrEmpty(framework))
-                {
-                    //nugetframework = NuGetFramework.Parse(framework.Value());
-
-                    //if (nugetframework.IsUnsupported)
+                    if (string.IsNullOrEmpty(runtimeName))
                     {
-                        Reporter.Output.WriteLine($"Unsupported framework {framework}.".Red());
+                        Console.WriteLine("Could not find runtime to install".Yellow());
                         return 1;
                     }
-                }
 
-                // TODO: Remove this once xplat publish is enabled.
-                //if (!runtime.HasValue())
-                {
-                    //runtime.Values.Add(RuntimeIdentifier.Current);
-                }
+                    string dotnetHomes;
+                    if (global)
+                    {
+                        dotnetHomes = $"{Environment.GetEnvironmentVariable("PROGRAMDATA")}\\Microsoft\\dotnet\\cli\\runtime";
+                    }
+                    else
+                    {
+                        dotnetHomes = $"{Environment.GetEnvironmentVariable("LOCALAPPDATA")}\\Microsoft\\dotnet\\cli\\runtime";
+                    }
+                    // coreclr_1.0.0-alpha-0001_win7-x64.zip
+                    var runtimeId = Path.GetFileNameWithoutExtension(runtimeName).Split('_');
+                    var outputDir = Path.Combine(dotnetHomes, runtimeId[1], runtimeId[2]);
 
-                // Locate the project and get the name and full path
-                //var path = project.Value;
-                //if (string.IsNullOrEmpty(path))
-                //{
-                //    path = Directory.GetCurrentDirectory();
-                //}
+                    if (Directory.Exists(outputDir))
+                    {
+                        Console.WriteLine($"{outputDir} already exists".Yellow());
+                        return 1;
+                    }
 
-                //var projectContexts = ProjectContext.CreateContextForEachTarget(path);
-                //projectContexts = GetMatchingProjectContexts(projectContexts, nugetframework, runtime.Value());
-
-                //if (projectContexts.Count() == 0)
-                //{
-                //    string errMsg = $"'{project.Value}' cannot be published";
-                //    if (framework.HasValue() || runtime.HasValue())
-                //    {
-                //        errMsg += $" for '{framework.Value()}' '{runtime.Value()}'";
-                //    }
-
-                //    Reporter.Output.WriteLine(errMsg.Red());
-                //    return 1;
-                //}
-
-                //int result = 0;
-                //foreach (var projectContext in projectContexts)
-                //{
-                //    result += Publish(projectContext, output.Value(), configuration.Value() ?? Constants.DefaultConfiguration);
-                //}
-
-                //return result;
-                return 0;
+                    var compressedRuntime = provider.GetRuntime(runtimeName);
+                    return ExtractRuntime(compressedRuntime, outputDir);
+                });
             });
 
             try
@@ -185,6 +141,40 @@ namespace Microsoft.DotNet.Tools.Runtime
 #endif
                 return 1;
             }
+        }
+
+        private static int ExtractRuntime(string runtimePath, string outputDir)
+        {
+            if (string.IsNullOrEmpty(runtimePath) || !File.Exists(runtimePath))
+            {
+                return 1;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(outputDir);
+
+                using (var runtimeZip = ZipFile.OpenRead(runtimePath))
+                {
+                    foreach (var file in runtimeZip.Entries)
+                    {
+                        file.ExtractToFile(Path.Combine(outputDir, file.Name));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Directory.Delete(outputDir, true);
+                throw ex;
+            }
+            finally
+            {
+                File.Delete(runtimePath);
+            }
+
+            Console.WriteLine($"Installed to {outputDir}");
+
+            return 0;
         }
     }
 }

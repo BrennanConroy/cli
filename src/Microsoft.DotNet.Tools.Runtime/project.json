@@ -21,7 +21,8 @@
             "version": "1.0.0-*"
         },
         "System.IO.Compression.ZipFile": "4.0.0-*",
-        "Microsoft.Extensions.PlatformAbstractions": "1.0.0-*"
+        "Microsoft.Extensions.PlatformAbstractions": "1.0.0-*",
+        "System.Net.Http": "4.0.1-*"
     },
     "frameworks": {
         "dnxcore50": { }
