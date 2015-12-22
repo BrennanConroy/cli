@@ -181,8 +181,15 @@ namespace Microsoft.DotNet.Tools.Runtime
                 }
                 else
                 {
-                    Command extract = Command.Create("tar", $"-xf {runtimePath} -C {outputDir}");
-                    extract.Execute();
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        throw new PlatformNotSupportedException("Can't untar on windows yet");
+                    }
+                    else
+                    {
+                        Command extract = Command.Create("tar", $"-xf {runtimePath} -C {outputDir}");
+                        extract.Execute();
+                    }
                 }
             }
             catch (Exception ex)
