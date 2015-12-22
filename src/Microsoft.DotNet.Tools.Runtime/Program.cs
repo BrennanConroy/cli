@@ -31,11 +31,11 @@ namespace Microsoft.DotNet.Tools.Runtime
                 var projectDirOrVersion = c.Argument("[project path]", "Path to project", multipleValues: false);
 
                 //var optionAlias = c.Option("--alias <ALIAS>", "Alias", CommandOptionType.SingleValue);
-                var optionArch = c.Option("--arch <ARCHITECTURE>", "Architecture [x86, x64, arm, arm64]", CommandOptionType.SingleValue);
+                //var optionArch = c.Option("--arch <ARCHITECTURE>", "Architecture [x86, x64, arm, arm64]", CommandOptionType.SingleValue);
                 var optionFeed = c.Option("--feed", "Feed to install from", CommandOptionType.SingleValue);
                 var optionGlobal = c.Option("--global", "Install globally", CommandOptionType.NoValue);
                 c.HelpOption("-h|--help");
-                var optionOs = c.Option("--os <OPERATING_SYSTEM>", "Operating System [win, osx, ubuntu, centos]", CommandOptionType.SingleValue);
+                //var optionOs = c.Option("--os <OPERATING_SYSTEM>", "Operating System [win, osx, ubuntu, centos]", CommandOptionType.SingleValue);
                 var optionRid = c.Option("--runtime-id <RID>", "Runtime ID e.g. win10-x64 or ubuntu.14.04-x64", CommandOptionType.SingleValue);
 
                 c.OnExecute(() =>
