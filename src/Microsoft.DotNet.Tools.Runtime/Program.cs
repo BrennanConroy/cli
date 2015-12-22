@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using Microsoft.Dnx.Runtime.Common.CommandLine;
 using Microsoft.DotNet.Cli.Utils;
 using Microsoft.Extensions.PlatformAbstractions;
@@ -12,8 +13,7 @@ namespace Microsoft.DotNet.Tools.Runtime
 {
     public class Program
     {
-        private static readonly string installLocation = "C:\\Users\\brecon\\AppData\\Local\\Microsoft\\dotnet\\cli\\runtime";
-        private static readonly string defaultFeed = "C:\\Users\\brecon\\Downloads"; //https://azure.blob.storage
+        private static readonly string defaultFeed = "https://testvmdotnet.azurewebsites.net/";
         public static int Main(string[] args)
         {
             DebugHelper.HandleDebugSwitch(ref args);
@@ -43,7 +43,7 @@ namespace Microsoft.DotNet.Tools.Runtime
                     //var runtimeEnv = new DefaultRuntimeEnvironment();
                     var versionOrPath = string.IsNullOrEmpty(projectDirOrVersion.Value) ? Directory.GetCurrentDirectory() : projectDirOrVersion.Value;
                     var feed = optionFeed.HasValue() ? optionFeed.Value() : defaultFeed;
-                    var rid = "win7-x64"; //runtimeEnv.GetRuntimeIdentifier();
+                    var rid = "win7-x64";//runtimeEnv.GetRuntimeIdentifier();
                     var global = optionGlobal.HasValue() ? true : false;
                     if (optionRid.HasValue())
                     {
@@ -51,8 +51,9 @@ namespace Microsoft.DotNet.Tools.Runtime
                     }
                     else
                     {
-                        var os = optionOs.HasValue() ? optionOs.Value() : "win"; //runtimeEnv.OperatingSystem;
-                        var arch = optionArch.HasValue() ? optionArch.Value() : "x64"; //runtimeEnv.GetArch();
+                        //TODO implement later
+                        //var os = optionOs.HasValue() ? optionOs.Value() : runtimeEnv.OperatingSystem;
+                        //var arch = optionArch.HasValue() ? optionArch.Value() : runtimeEnv.RuntimeArchitecture;
                         //runtimeEnv.RuntimeArchitecture = arch;
                         //runtimeEnv.OperatingSystemPlatform = ;
                         //runtimeEnv.OperatingSystemVersion = ;
@@ -107,15 +108,29 @@ namespace Microsoft.DotNet.Tools.Runtime
                     string dotnetHomes;
                     if (global)
                     {
-                        dotnetHomes = $"{Environment.GetEnvironmentVariable("PROGRAMDATA")}\\Microsoft\\dotnet\\cli\\runtime";
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        {
+                            dotnetHomes = $"{Environment.GetEnvironmentVariable("PROGRAMDATA")}\\Microsoft\\dotnet\\cli\\runtime";
+                        }
+                        else
+                        {
+                            dotnetHomes = "/usr/local/share/dotnet/cli/runtime";
+                        }
                     }
                     else
                     {
-                        dotnetHomes = $"{Environment.GetEnvironmentVariable("LOCALAPPDATA")}\\Microsoft\\dotnet\\cli\\runtime";
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        {
+                            dotnetHomes = $"{Environment.GetEnvironmentVariable("LOCALAPPDATA")}\\Microsoft\\dotnet\\cli\\runtime";
+                        }
+                        else
+                        {
+                            dotnetHomes = $"{Environment.GetEnvironmentVariable("HOME")}/.dotnet/share/dotnet/cli/runtime";
+                        }
                     }
                     // coreclr_1.0.0-alpha-0001_win7-x64.zip
                     var runtimeId = Path.GetFileNameWithoutExtension(runtimeName).Split('_');
-                    var outputDir = Path.Combine(dotnetHomes, runtimeId[1], runtimeId[2]);
+                    var outputDir = Path.Combine(dotnetHomes, runtimeId[1], Path.GetFileNameWithoutExtension(runtimeId[2]));
 
                     if (Directory.Exists(outputDir))
                     {
@@ -154,12 +169,20 @@ namespace Microsoft.DotNet.Tools.Runtime
             {
                 Directory.CreateDirectory(outputDir);
 
-                using (var runtimeZip = ZipFile.OpenRead(runtimePath))
+                if (runtimePath.EndsWith(".zip"))
                 {
-                    foreach (var file in runtimeZip.Entries)
+                    using (var runtimeZip = ZipFile.OpenRead(runtimePath))
                     {
-                        file.ExtractToFile(Path.Combine(outputDir, file.Name));
+                        foreach (var file in runtimeZip.Entries)
+                        {
+                            file.ExtractToFile(Path.Combine(outputDir, file.Name));
+                        }
                     }
+                }
+                else
+                {
+                    Command extract = Command.Create("tar", $"-xf {runtimePath} -C {outputDir}");
+                    extract.Execute();
                 }
             }
             catch (Exception ex)

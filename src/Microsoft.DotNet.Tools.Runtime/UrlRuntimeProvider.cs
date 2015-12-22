@@ -45,7 +45,7 @@ namespace Microsoft.DotNet.Tools.Runtime
                 return string.Empty;
             }
 
-            var downloadLocation = "C:/users/brecon/downloads/temp";
+            var downloadLocation = Path.Combine(Path.GetTempPath(), Path.GetFileName(runtimeName));
             using (var stream = new FileStream(downloadLocation, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
             {
                 result.Content.CopyToAsync(stream).Wait();
